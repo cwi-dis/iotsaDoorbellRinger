@@ -268,7 +268,7 @@ void buttonHandler() {
         } 
       }
     }
-    message += "\"}\n";
+    message += "}\n";
     server.send(200, "application/json", message);
   } else {
     String message = "<html><head><title>Buttons</title></head><body><h1>Buttons</h1>";
