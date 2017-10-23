@@ -82,6 +82,7 @@ void IotsaAlarmMod::handler() {
         }
       }
     }
+  }
   String message = "<html><head><title>Alarm Server</title></head><body><h1>Alarm Server</h1>";
   message += "<form method='get'>";
   message += "Alarm: <input name='alarm' value=''> (times 0.1 second)<br>\n";
