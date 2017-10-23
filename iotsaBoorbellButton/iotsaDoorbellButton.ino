@@ -350,9 +350,8 @@ void buttonLoop() {
       int newButtonState = (state == LOW);
       if (newButtonState != buttons[i].buttonState) {
         buttons[i].buttonState = newButtonState;
-        bool doSend;
-        doSend = (buttons[i].buttonState && buttons[i].sendOnPress) || (!buttons[i].buttonState && buttons[i].sendOnRelease);
-        if (buttons[i].buttonState && buttons[i].url != "") sendRequest(buttons[i].url, buttons[i].token);
+        bool doSend = (buttons[i].buttonState && buttons[i].sendOnPress) || (!buttons[i].buttonState && buttons[i].sendOnRelease);
+        if (doSend && buttons[i].url != "") sendRequest(buttons[i].url, buttons[i].token);
       }
     }
   }
