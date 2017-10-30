@@ -50,7 +50,7 @@ unsigned long alarmEndTime;
 // Declaration of the Alarm module
 class IotsaAlarmMod : public IotsaMod {
 public:
-  IotsaAlarmMod(IotsaApplication &_app) : IotsaMod(_app) {}
+  using IotsaMod::IotsaMod;
   void setup();
   void serverSetup();
   void loop();
@@ -79,7 +79,7 @@ void IotsaAlarmMod::handler() {
           alarmEndTime = millis() + dur*100;
           IotsaSerial.println("alarm on");
           digitalWrite(PIN_ALARM, HIGH);
-          ledMod.set(0x0080ff, dur, 0, 1);
+          ledMod.set(0x0080ff, dur*100, 0, 1);
         } else {
           alarmEndTime = 0;
         }
@@ -112,7 +112,7 @@ void IotsaAlarmMod::loop() {
   }
 }
 
-IotsaAlarmMod alarmMod(application);
+IotsaAlarmMod alarmMod(application, &myTokenAuthenticator);
 //
 // Boilerplate for iotsa server, with hooks to our code added.
 //

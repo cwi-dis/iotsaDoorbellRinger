@@ -98,18 +98,22 @@ bool IotsaStaticTokenMod::needsAuthentication(const char *right) {
       String rightField("/");
       rightField += right;
       rightField += "/";
+      //IotsaSerial.print("Bearer token: "); IotsaSerial.println(token);
+      //IotsaSerial.print("Rights needed: "); IotsaSerial.println(rightField);
       // Loop over all tokens.
+      
       for (int i=0; i<ntoken; i++) {
         if (tokens[i].token == token) {
           // The token matches. Check the rights.
           if (tokens[i].rights == "*" || tokens[i].rights.indexOf(rightField) >= 0) {
+            //IotsaSerial.print("Matched with: "); IotsaSerial.println(tokens[i].rights);
             return false;
           }
         }
       }
     }
   }
-  Serial.println("No token match, try user/password");
+  IotsaSerial.println("No token match, try user/password");
   // If no rights fall back to username/password authentication
   return chain.needsAuthentication(right);
 }
