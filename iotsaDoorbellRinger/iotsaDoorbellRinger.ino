@@ -23,8 +23,10 @@
 #include "iotsaConfigFile.h"
 #include "iotsaUser.h"
 #include "iotsaStaticToken.h"
+#include "iotsaLed.h"
 
 #define PIN_ALARM 4 // GPIO4 connects to the buzzer
+#define PIN_NEOPIXEL 15  // pulled-down during boot, can be used for NeoPixel afterwards
 #define IFDEBUGX if(0)
 
 ESP8266WebServer server(80);
@@ -34,6 +36,7 @@ IotsaApplication application(server, "Doorbell Server");
 IotsaWifiMod wifiMod(application);  // wifi is always needed
 IotsaOtaMod otaMod(application);    // we want OTA for updating the software (will not work with esp-201)
 IotsaFilesBackupMod filesBackupMod(application);  // we want backup to clone server
+IotsaLedMod ledMod(application, PIN_NEOPIXEL);
 
 IotsaUserMod myUserAuthenticator(application, "owner");  // Our username/password authenticator module
 IotsaStaticTokenMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
@@ -60,7 +63,7 @@ private:
 // LCD configuration and implementation
 //
 void IotsaAlarmMod::setup() {
-  pinMode(PIN_ALARM, INPUT); // Trick: we configure to input so we make the pin go Hi-Z.
+  pinMode(PIN_ALARM, OUTPUT); // Trick: we configure to input so we make the pin go Hi-Z.
 }
 
 void IotsaAlarmMod::handler() {
@@ -75,8 +78,8 @@ void IotsaAlarmMod::handler() {
         if (dur) {
           alarmEndTime = millis() + dur*100;
           IotsaSerial.println("alarm on");
-          pinMode(PIN_ALARM, OUTPUT);
-          digitalWrite(PIN_ALARM, LOW);
+          digitalWrite(PIN_ALARM, HIGH);
+          ledMod.set(0x0080ff, dur, 0, 1);
         } else {
           alarmEndTime = 0;
         }
@@ -104,12 +107,12 @@ void IotsaAlarmMod::serverSetup() {
 void IotsaAlarmMod::loop() {
   if (alarmEndTime && millis() > alarmEndTime) {
     alarmEndTime = 0;
-    pinMode(PIN_ALARM, INPUT);
+    IotsaSerial.println("alarm off");
+    digitalWrite(PIN_ALARM, LOW);
   }
 }
 
 IotsaAlarmMod alarmMod(application);
-
 //
 // Boilerplate for iotsa server, with hooks to our code added.
 //
