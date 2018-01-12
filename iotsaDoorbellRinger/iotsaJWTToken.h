@@ -2,8 +2,6 @@
 #define _IOTSAJWTTOKEN_H_
 #include "iotsa.h"
 
-class JWTToken;
-
 class IotsaJWTTokenMod : public IotsaAuthMod {
 public:
   IotsaJWTTokenMod(IotsaApplication &_app, IotsaAuthMod &_chain);
@@ -18,8 +16,8 @@ protected:
   void handler();
   
   IotsaAuthMod &chain;
-  int ntoken;
-  JWTToken *tokens;
+  String trustedIssuer;
+  String issuerKey;
 };
 
 #endif

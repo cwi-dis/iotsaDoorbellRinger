@@ -1,14 +1,9 @@
 #include "iotsaUser.h"
 #include "iotsaConfigFile.h"
 #include "IotsaJWTToken.h"
+#include "ArduinoJWT.h"
 
-#undef PASSWORD_DEBUGGING	// Enables admin1/admin1 to always log in
-
-class JWTToken {
-public:
-  String token;
-  String rights;
-};
+// This module requires the ArduinoJWT library from https://github.com/yutter/ArduinoJWT
 
 IotsaJWTTokenMod::IotsaJWTTokenMod(IotsaApplication &_app, IotsaAuthMod &_chain)
 :	chain(_chain),
@@ -20,28 +15,24 @@ IotsaJWTTokenMod::IotsaJWTTokenMod(IotsaApplication &_app, IotsaAuthMod &_chain)
 void
 IotsaJWTTokenMod::handler() {
   if (needsAuthentication("tokens")) return;
-  if (server.hasArg("ntoken")) {
-    ntoken = server.arg("ntoken").toInt();
-    if (tokens) free(tokens);
-    tokens = (JWTToken *)calloc(ntoken, sizeof(JWTToken));
-     
-    for (int i=0; i<ntoken; i++) {
-      String tokenValue ;
-      String tokenRights;
-      tokens[i].token = server.arg("token" + String(i));
-      tokens[i].rights = server.arg("rights" + String(i));
-    }
-    configSave();
+  bool anyChanged = false;
+  if (server.hasArg("issuer")) {
+    trustedIssuer = server.arg("issuer");
+    anyChanged = true;
   }
+  if (server.hasArg("issuerKey")) {
+   issuerKey = server.arg("issuerKey");
+    anyChanged = true;
+  }
+  if (anyChanged) configSave();
 
-  String message = "<html><head><title>Edit tokens</title></head><body><h1>Edit tokens</h1>";
-  message += "<form method='get'>Number of tokens: <input name='ntoken' type='number' min='0' value='";
-  message += String(ntoken);
+  String message = "<html><head><title>JWT Keys</title></head><body><h1>JWT Keys</h1>";
+  message += "<form method='get'>Trusted JWT Issuer: <input name='issuer' value='";
+  message += trustedIssuer;
   message += "'>";
-  for (int i=0; i<ntoken; i++) {
-    message += "<br>Token: <input name='token" + String(i) + "' value='" + tokens[i].token + "'>";
-    message += "Rights (/right1/right2/right3/) <input name='rights" + String(i) + "' value='" + tokens[i].rights + "'>";
-  }
+  message += "<br>Secret Key: <input name='issuerKey' value='";
+  message += issuerKey;
+  message += "'>";
 
   message += "<br><input type='submit'></form>";
   server.send(200, "text/html", message);
@@ -52,40 +43,27 @@ void IotsaJWTTokenMod::setup() {
 }
 
 void IotsaJWTTokenMod::serverSetup() {
-  server.on("/tokens", std::bind(&IotsaJWTTokenMod::handler, this));
+  server.on("/jwt", std::bind(&IotsaJWTTokenMod::handler, this));
 }
 
 void IotsaJWTTokenMod::configLoad() {
-  IotsaConfigFileLoad cf("/config/statictokens.cfg");
-  cf.get("ntoken", ntoken, 0);
-  if (tokens) free(tokens);
-  if (ntoken <= 0) return;
-  tokens = (JWTToken *)calloc(ntoken, sizeof(JWTToken));
-   
-  for (int i=0; i<ntoken; i++) {
-    String tokenValue;
-    String tokenRights;
-    cf.get("token" + String(i), tokens[i].token, "");
-  	cf.get("rights" + String(i), tokens[i].rights, "");
-  	// xxxjack store into a token object
-  }
+  IotsaConfigFileLoad cf("/config/jwt.cfg");
+  cf.get("trustedIssuer", trustedIssuer, "");
+  cf.get("issuerKey", issuerKey, "");
 }
 
 void IotsaJWTTokenMod::configSave() {
-  IotsaConfigFileSave cf("/config/statictokens.cfg");
-  cf.put("ntoken", ntoken);
-  for (int i=0; i<ntoken; i++) {
-	  cf.put("token" + String(i), tokens[i].token);
-  	cf.put("rights" + String(i), tokens[i].rights);
-  }
+  IotsaConfigFileSave cf("/config/jwt.cfg");
+  cf.put("trustedIssuer", trustedIssuer);
+  cf.put("issuerKey", issuerKey);
 }
 
 void IotsaJWTTokenMod::loop() {
 }
 
 String IotsaJWTTokenMod::info() {
-  String message = "<p>Static tokens enabled.";
-  message += " See <a href=\"/tokens\">/tokens</a> to change.";
+  String message = "<p>JWT tokens enabled.";
+  message += " See <a href=\"/jwt\">/tokens</a> to change settings.";
   message += "</p>";
   return message;
 }
@@ -95,23 +73,16 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
     String authHeader = server.header("Authorization");
     if (authHeader.startsWith("Bearer ")) {
       String token = authHeader.substring(7);
-      String rightField("/");
-      rightField += right;
-      rightField += "/";
-      //IotsaSerial.print("Bearer token: "); IotsaSerial.println(token);
-      //IotsaSerial.print("Rights needed: "); IotsaSerial.println(rightField);
-      // Loop over all tokens.
-      
-      for (int i=0; i<ntoken; i++) {
-        if (tokens[i].token == token) {
-          // The token matches. Check the rights.
-          if (tokens[i].rights == "*" || tokens[i].rights.indexOf(rightField) >= 0) {
-            //IotsaSerial.print("Matched with: "); IotsaSerial.println(tokens[i].rights);
-            return false;
-          }
-        }
+      ArduinoJWT(issuerKey);
+      String payload;
+      bool ok = decodeJWT(token, payload);
+      if (ok) {
+        // Token decoded correctly.
+        // xxxjack decode JSON from payload
+        // xxxjack check that issuer matches
+        // xxxjack check that right matches
+        return true;
       }
-    }
   }
   IotsaSerial.println("No token match, try user/password");
   // If no rights fall back to username/password authentication
