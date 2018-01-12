@@ -22,7 +22,7 @@
 #include "iotsaSimple.h"
 #include "iotsaConfigFile.h"
 #include "iotsaUser.h"
-#include "iotsaStaticToken.h"
+#include "iotsaJWTToken.h"
 #include "iotsaLed.h"
 
 #define PIN_ALARM 4 // GPIO4 connects to the buzzer
@@ -39,7 +39,7 @@ IotsaFilesBackupMod filesBackupMod(application);  // we want backup to clone ser
 IotsaLedMod ledMod(application, PIN_NEOPIXEL);
 
 IotsaUserMod myUserAuthenticator(application, "owner");  // Our username/password authenticator module
-IotsaStaticTokenMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
+IotsaJWTTokenMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
 
 
 //
