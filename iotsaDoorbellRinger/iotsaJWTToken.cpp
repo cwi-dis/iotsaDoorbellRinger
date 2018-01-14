@@ -4,6 +4,8 @@
 #include <ArduinoJWT.h>
 #include <ArduinoJson.h>
 
+#define IFDEBUGX if(1)
+
 // This module requires the ArduinoJWT library from https://github.com/yutter/ArduinoJWT
 
 IotsaJWTTokenMod::IotsaJWTTokenMod(IotsaApplication &_app, IotsaAuthMod &_chain)
@@ -73,12 +75,16 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
   if (server.hasHeader("Authorization")) {
     String authHeader = server.header("Authorization");
     if (authHeader.startsWith("Bearer ")) {
+      IFDEBUGX IotsaSerial.println("Found Authorization bearer");
       String token = authHeader.substring(7);
       ArduinoJWT decoder(issuerKey);
       String payload;
       bool ok = decoder.decodeJWT(token, payload);
       // If decode returned false the token wasn't signed with they key.
-      if (!ok) return false;
+      if (!ok) {
+        IFDEBUGX IotsaSerial.println("Did not decode correctly with key");
+        return true;
+      }
       
       // Token decoded correctly.
       // decode JSON from payload
@@ -87,18 +93,28 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
       
       // check that issuer matches
       String issuer = root["iss"];
-      if (issuer != trustedIssuer) return false;
+      if (issuer != trustedIssuer) {
+        IFDEBUGX IotsaSerial.println("Issuer did not match");
+        return true;
+      }
       // xxxjack check that audience matches, if present
       if (root.containsKey("aud")) {
         String audience = root["aud"];
         String myUrl("http://");
         myUrl += hostName;
-        if (audience != myUrl) return false;
+        if (audience != myUrl) {
+          IFDEBUGX IotsaSerial.println("Audience did not match");
+          return true;
+        }
       }
       // check that right matches
       String capRights = root["right"];
-      if (capRights != right) return false;
-      return true;
+      if (capRights != right && capRights != "*") {
+        IFDEBUGX IotsaSerial.println("Rights did not match");
+        return true;
+      }
+      IFDEBUGX IotsaSerial.println("JWT accepted");
+      return false;
     }
     
   }
