@@ -1,7 +1,8 @@
 #include "iotsaUser.h"
 #include "iotsaConfigFile.h"
 #include "IotsaJWTToken.h"
-#include "ArduinoJWT.h"
+#include <ArduinoJWT.h>
+#include <ArduinoJson.h>
 
 // This module requires the ArduinoJWT library from https://github.com/yutter/ArduinoJWT
 
@@ -73,16 +74,33 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
     String authHeader = server.header("Authorization");
     if (authHeader.startsWith("Bearer ")) {
       String token = authHeader.substring(7);
-      ArduinoJWT(issuerKey);
+      ArduinoJWT decoder(issuerKey);
       String payload;
-      bool ok = decodeJWT(token, payload);
-      if (ok) {
-        // Token decoded correctly.
-        // xxxjack decode JSON from payload
-        // xxxjack check that issuer matches
-        // xxxjack check that right matches
-        return true;
+      bool ok = decoder.decodeJWT(token, payload);
+      // If decode returned false the token wasn't signed with they key.
+      if (!ok) return false;
+      
+      // Token decoded correctly.
+      // decode JSON from payload
+      DynamicJsonBuffer jsonBuffer;
+      JsonObject& root = jsonBuffer.parseObject(payload);
+      
+      // check that issuer matches
+      String issuer = root["iss"];
+      if (issuer != trustedIssuer) return false;
+      // xxxjack check that audience matches, if present
+      if (root.containsKey("aud")) {
+        String audience = root["aud"];
+        String myUrl("http://");
+        myUrl += hostName;
+        if (audience != myUrl) return false;
       }
+      // check that right matches
+      String capRights = root["right"];
+      if (capRights != right) return false;
+      return true;
+    }
+    
   }
   IotsaSerial.println("No token match, try user/password");
   // If no rights fall back to username/password authentication
