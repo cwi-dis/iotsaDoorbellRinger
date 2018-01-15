@@ -6,6 +6,25 @@
 
 #define IFDEBUGX if(1)
 
+// Static method to check whether a string exactly matches a Json object,
+// or is included in the Json object if it is an array.
+static bool stringContainedIn(const char *wanted, JsonVariant& got) {
+  if (got.is<char*>()) {
+    return strcmp(wanted, got.as<const char *>()) == 0;
+  }
+  if (!got.is<JsonArray>()) {
+    return false;
+  }
+  JsonArray& gotArray = got.as<JsonArray>();
+  for(int i=0; i<gotArray.size(); i++) {
+    const char *gotItem = gotArray[i];
+    if (strcmp(gotItem, wanted) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // This module requires the ArduinoJWT library from https://github.com/yutter/ArduinoJWT
 
 IotsaJWTTokenMod::IotsaJWTTokenMod(IotsaApplication &_app, IotsaAuthMod &_chain)
@@ -83,6 +102,7 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
       // If decode returned false the token wasn't signed with they key.
       if (!ok) {
         IFDEBUGX IotsaSerial.println("Did not decode correctly with key");
+        server.send(401, "text/plain", "401 Unauthorized (incorrect signature)\n");
         return true;
       }
       
@@ -94,23 +114,36 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
       // check that issuer matches
       String issuer = root["iss"];
       if (issuer != trustedIssuer) {
-        IFDEBUGX IotsaSerial.println("Issuer did not match");
+        IFDEBUGX IotsaSerial.print("Issuer did not match, wtd=");
+        IFDEBUGX IotsaSerial.print(trustedIssuer);
+        IFDEBUGX IotsaSerial.print(", got=");
+        IFDEBUGX IotsaSerial.println(issuer);
+        server.send(401, "text/plain", "401 Unauthorized (incorrect issuer)\n");
         return true;
       }
       // xxxjack check that audience matches, if present
       if (root.containsKey("aud")) {
-        String audience = root["aud"];
+        JsonVariant audience = root["aud"];
         String myUrl("http://");
         myUrl += hostName;
-        if (audience != myUrl) {
-          IFDEBUGX IotsaSerial.println("Audience did not match");
+        myUrl += ".local";
+        if (!stringContainedIn(myUrl.c_str(), audience)) {
+          IFDEBUGX IotsaSerial.print("Audience did not match, wtd=");
+          IFDEBUGX IotsaSerial.print(myUrl);
+          IFDEBUGX IotsaSerial.print(", got=");
+          IFDEBUGX IotsaSerial.println(audience.as<String>());
+          server.send(401, "text/plain", "401 Unauthorized (incorrect audience)\n");
           return true;
         }
       }
       // check that right matches
-      String capRights = root["right"];
-      if (capRights != right && capRights != "*") {
-        IFDEBUGX IotsaSerial.println("Rights did not match");
+      JsonVariant capRights = root["right"];
+      if (!stringContainedIn(right, capRights)) {
+          IFDEBUGX IotsaSerial.print("Rights did not match, wtd=");
+          IFDEBUGX IotsaSerial.print(right);
+          IFDEBUGX IotsaSerial.print(", got=");
+          IFDEBUGX IotsaSerial.println(capRights.as<String>());
+        server.send(401, "text/plain", "401 Unauthorized (incorrect rights)\n");
         return true;
       }
       IFDEBUGX IotsaSerial.println("JWT accepted");
