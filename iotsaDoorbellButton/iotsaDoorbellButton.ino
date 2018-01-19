@@ -21,10 +21,11 @@
 #include "iotsaFilesBackup.h"
 #include "iotsaSimple.h"
 #include "iotsaConfigFile.h"
+#include "iotsaLed.h"
 
 #define PIN_BUTTON 4	// GPIO4 is the pushbutton
 #define PIN_LOCK 5		// GPIO5 is the keylock switch
-#undef PIN_ALARM
+#define PIN_NEOPIXEL 15  // pulled-down during boot, can be used for NeoPixel afterwards
 #define IFDEBUGX if(0)
 
 ESP8266WebServer server(80);
@@ -34,69 +35,13 @@ IotsaApplication application(server, "Doorbell Button Server");
 IotsaWifiMod wifiMod(application);  // wifi is always needed
 IotsaOtaMod otaMod(application);    // we want OTA for updating the software (will not work with esp-201)
 IotsaFilesBackupMod filesBackupMod(application);  // we want backup to clone server
+IotsaLedMod ledMod(application, PIN_NEOPIXEL);
 
 static void decodePercentEscape(String &src, String *dst); // Forward declaration
 
 //
-// Buzzer configuration and implementation
-//
-#ifdef PIN_ALARM
-unsigned long alarmEndTime;
-#endif
-
-//
-// LCD configuration and implementation
-//
-#ifdef PIN_ALARM
-void alarmSetup() {
-  pinMode(PIN_ALARM, INPUT); // Trick: we configure to input so we make the pin go Hi-Z.
-}
-
-void alarmHandler() {
-  String msg;
-
-  for (uint8_t i=0; i<server.args(); i++){
-    if (server.argName(i) == "alarm") {
-      const char *arg = server.arg(i).c_str();
-      if (arg && *arg) {
-        int dur = atoi(server.arg(i).c_str());
-        if (dur) {
-          alarmEndTime = millis() + dur*100;
-          IotsaSerial.println("alarm on");
-          pinMode(PIN_ALARM, OUTPUT);
-          digitalWrite(PIN_ALARM, LOW);
-        } else {
-          alarmEndTime = 0;
-        }
-      }
-    }
-  String message = "<html><head><title>Alarm Server</title></head><body><h1>Alarm Server</h1>";
-  message += "<form method='get'>";
-  message += "Alarm: <input name='alarm' value=''> (times 0.1 second)<br>\n";
-  message += "<input type='submit'></form></body></html>";
-  server.send(200, "text/html", message);
-  
-}
-
-String alarmInfo() {
-  return "<p>See <a href='/alarm'>/alarm</a> to use the buzzer.";
-}
-
-void alarmLoop() {
-  if (alarmEndTime && millis() > alarmEndTime) {
-    alarmEndTime = 0;
-    pinMode(PIN_ALARM, INPUT);
-  }
-}
-
-IotsaSimpleMod alarmMod(application, "/alarm", alarmHandler, alarmInfo);
-
-#endif // PIN_ALARM
-
-//
 // Button parameters and implementation
 //
-#ifdef PIN_BUTTON
 
 typedef struct _Button {
   int pin;
@@ -323,16 +268,13 @@ bool sendRequest(String urlStr, String token) {
     http.addHeader("Authorization", "Bearer " + token);
   }
   int code = http.GET();
-  if (code > 0) {
-    IFDEBUG IotsaSerial.print("OK GET ");
+  if (code >= 200 && code <= 299) {
+    IFDEBUG IotsaSerial.print(code);
+    IFDEBUG IotsaSerial.print(" OK GET ");
     IFDEBUG IotsaSerial.println(urlStr);
- #ifdef PIN_ALARM
-    alarmEndTime = millis() + BUTTON_BEEP_DUR;
-    pinMode(PIN_ALARM, OUTPUT);
-    digitalWrite(PIN_ALARM, LOW);
-#endif // PIN_ALARM
   } else {
-    IFDEBUG IotsaSerial.print("FAIL GET ");
+    IFDEBUG IotsaSerial.print(code);
+    IFDEBUG IotsaSerial.print(" FAIL GET ");
     IFDEBUG IotsaSerial.println(urlStr);
   }
   http.end();
@@ -359,7 +301,6 @@ void buttonLoop() {
 
 IotsaSimpleMod buttonMod(application, "/buttons", buttonHandler, buttonInfo);
 
-#endif // PIN_BUTTON
 
 //
 // Decode percent-escaped string src.
@@ -386,17 +327,6 @@ static void decodePercentEscape(String &src, String *dst) {
       }
       if (dst) {
         *dst += newch;
-      } else {
-#ifdef WITH_LCD
-        lcd.print(newch);
-        x++;
-        if (x >= LCD_WIDTH) {
-          x = 0;
-          y++;
-          if (y >= LCD_HEIGHT) y = 0;
-          lcd.setCursor(x, y);
-        }
-#endif
       }
       arg++;
     }
@@ -408,15 +338,11 @@ static void decodePercentEscape(String &src, String *dst) {
 void setup(void) {
   application.setup();
   application.serverSetup();
-#ifdef PIN_BUTTON
   buttonSetup();
-#endif
   ESP.wdtEnable(WDTO_120MS);
 }
  
 void loop(void) {
   application.loop();
-#ifdef PIN_BUTTON
   buttonLoop();
-#endif
 } 
