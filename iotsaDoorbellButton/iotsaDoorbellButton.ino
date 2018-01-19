@@ -26,6 +26,7 @@
 #define PIN_BUTTON 4	// GPIO4 is the pushbutton
 #define PIN_LOCK 5		// GPIO5 is the keylock switch
 #define PIN_NEOPIXEL 15  // pulled-down during boot, can be used for NeoPixel afterwards
+#define WITH_HTTPS
 #define IFDEBUGX if(0)
 
 ESP8266WebServer server(80);
@@ -46,6 +47,9 @@ static void decodePercentEscape(String &src, String *dst); // Forward declaratio
 typedef struct _Button {
   int pin;
   String url;
+#ifdef WITH_HTTPS
+  String fingerprint;
+#endif
   String token;
   bool sendOnPress;
   bool sendOnRelease;
@@ -55,8 +59,13 @@ typedef struct _Button {
 } Button;
 
 Button buttons[] = {
+#ifdef WITH_HTTPS
+  { PIN_BUTTON, "", "", "", true, false, 0, 0, false},
+  { PIN_LOCK, "", "", "", true, true, 0, 0, false}
+#else
   { PIN_BUTTON, "", "", true, false, 0, 0, false},
   { PIN_LOCK, "", "", true, true, 0, 0, false}
+#endif
 };
 
 const int nButton = sizeof(buttons) / sizeof(buttons[0]);
@@ -69,6 +78,10 @@ void buttonConfigLoad() {
   for (int i=0; i<nButton; i++) {
     String name = "button" + String(i+1) + "url";
     cf.get(name, buttons[i].url, "");
+#ifdef WITH_HTTPS
+    name = "button" + String(i+1) + "fingerprint";
+    cf.get(name, buttons[i].fingerprint, "");
+#endif
     name = "button" + String(i+1) + "token";
     cf.get(name, buttons[i].token, "");
     name = "button" + String(i+1) + "on";
@@ -97,8 +110,12 @@ void buttonConfigSave() {
   for (int i=0; i<nButton; i++) {
     String name = "button" + String(i+1) + "url";
     cf.put(name, buttons[i].url);
+#ifdef WITH_HTTPS
+    name = "button" + String(i+1) + "fingerprint";
+    cf.put(name, buttons[i].fingerprint);
+#endif
     name = "button" + String(i+1) + "token";
-    cf.put(name, buttons[i].url);
+    cf.put(name, buttons[i].token);
     name = "button" + String(i+1) + "on";
     if (buttons[i].sendOnPress) {
       if (buttons[i].sendOnRelease) {
@@ -138,6 +155,17 @@ void buttonHandler() {
         IFDEBUG IotsaSerial.println(buttons[j].url);
         any = true;
       }
+#ifdef WITH_HTTPS
+      wtdName = "button" + String(j+1) + "fingerprint";
+      if (server.argName(i) == wtdName) {
+        String arg = server.arg(i);
+        decodePercentEscape(arg, &buttons[j].fingerprint);
+        IFDEBUG IotsaSerial.print(wtdName);
+        IFDEBUG IotsaSerial.print("=");
+        IFDEBUG IotsaSerial.println(buttons[j].fingerprint);
+        any = true;
+      }
+#endif
 
       wtdName = "button" + String(j+1) + "token";
       if (server.argName(i) == wtdName) {
@@ -191,6 +219,14 @@ void buttonHandler() {
       message += buttons[i].url;
       message += "\"";
 
+#ifdef WITH_HTTPS
+      message += ", \"button";
+      message += String(i+1);
+      message += "fingerprint\" : \"";
+      message += buttons[i].fingerprint;
+      message += "\"";
+#endif
+
       message += ", \"button";
       message += String(i+1);
       message += "token\" : \"";
@@ -228,8 +264,14 @@ void buttonHandler() {
       message += "Activation URL: <input name='button" + String(i+1) + "url' value='";
       message += buttons[i].url;
       message += "'><br>\n";
-      
-      message += "Activation URL bearer token: <input name='button" + String(i+1) + "token' value='";
+
+#ifdef WITH_HTTPS
+      message += "Fingerprint <i>(https only)</i>: <input name='button" + String(i+1) + "fingerprint' value='";
+      message += buttons[i].fingerprint;
+      message += "'><br>\n";
+#endif
+
+      message += "Bearer token <i>(optional)</i>: <input name='button" + String(i+1) + "token' value='";
       message += buttons[i].token;
       message += "'><br>\n";
       
@@ -259,12 +301,20 @@ String buttonInfo() {
   return "<p>See <a href='/buttons'>/buttons</a> to program URLs for button presses.</a>";
 }
 
-bool sendRequest(String urlStr, String token) {
+bool sendRequest(String urlStr, String token, String fingerprint="") {
   bool rv = true;
   HTTPClient http;
   ledMod.set(0x000020, 250, 250, 10); // Flash 2 times per second blue, while connecting
   delay(1);
+#ifdef WITH_HTTPS
+  if (urlStr.startsWith("https:")) {
+    http.begin(urlStr, fingerprint);
+  } else {
+    http.begin(urlStr);  
+  }
+#else
   http.begin(urlStr);
+#endif
   if (token != "") {
     http.addHeader("Authorization", "Bearer " + token);
   }
@@ -296,7 +346,13 @@ void buttonLoop() {
       if (newButtonState != buttons[i].buttonState) {
         buttons[i].buttonState = newButtonState;
         bool doSend = (buttons[i].buttonState && buttons[i].sendOnPress) || (!buttons[i].buttonState && buttons[i].sendOnRelease);
-        if (doSend && buttons[i].url != "") sendRequest(buttons[i].url, buttons[i].token);
+        if (doSend && buttons[i].url != "") {
+#ifdef WITH_HTTPS
+          sendRequest(buttons[i].url, buttons[i].token, buttons[i].fingerprint);
+#else
+          sendRequest(buttons[i].url, buttons[i].token);
+#endif
+        }
       }
     }
   }
