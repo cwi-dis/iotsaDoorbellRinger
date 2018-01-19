@@ -30,7 +30,7 @@
 #define IFDEBUGX if(0)
 
 ESP8266WebServer server(80);
-IotsaApplication application(server, "Doorbell Server");
+IotsaApplication application(server, "Doorbell Ringer Server");
 
 // Configure modules we need
 IotsaWifiMod wifiMod(application);  // wifi is always needed
