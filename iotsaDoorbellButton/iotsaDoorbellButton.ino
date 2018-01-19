@@ -262,17 +262,20 @@ String buttonInfo() {
 bool sendRequest(String urlStr, String token) {
   bool rv = true;
   HTTPClient http;
-
+  ledMod.set(0x000020, 250, 250, 10); // Flash 2 times per second blue, while connecting
+  delay(1);
   http.begin(urlStr);
   if (token != "") {
     http.addHeader("Authorization", "Bearer " + token);
   }
   int code = http.GET();
   if (code >= 200 && code <= 299) {
+    ledMod.set(0x002000, 250, 0, 1); // quarter second green flash for success
     IFDEBUG IotsaSerial.print(code);
     IFDEBUG IotsaSerial.print(" OK GET ");
     IFDEBUG IotsaSerial.println(urlStr);
   } else {
+    ledMod.set(0x200000, 250, 0, 1); // quarter second red flash for failure
     IFDEBUG IotsaSerial.print(code);
     IFDEBUG IotsaSerial.print(" FAIL GET ");
     IFDEBUG IotsaSerial.println(urlStr);
