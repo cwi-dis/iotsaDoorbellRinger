@@ -48,14 +48,17 @@ IotsaJWTTokenMod myTokenAuthenticator(application, myUserAuthenticator); // Our 
 unsigned long alarmEndTime;
 
 // Declaration of the Alarm module
-class IotsaAlarmMod : public IotsaMod {
+class IotsaAlarmMod : public IotsaApiMod {
 public:
-  using IotsaMod::IotsaMod;
+  IotsaAlarmMod(IotsaApplication &_app, IotsaAuthMod *_auth=NULL) : IotsaApiMod(_app, _auth) {}
   void setup();
   void serverSetup();
   void loop();
   String info();
-private:
+  using IotsaBaseMod::needsAuthentication;
+protected:
+  bool getHandler(const char *path, JsonObject& reply);
+  bool putHandler(const char *path, const JsonVariant& request, JsonObject& reply);
   void handler();
 };
 
@@ -94,13 +97,44 @@ void IotsaAlarmMod::handler() {
   
 }
 
+bool IotsaAlarmMod::getHandler(const char *path, JsonObject& reply) {
+  int dur = 0;
+  if (alarmEndTime) {
+    dur = (alarmEndTime - millis())/100;
+  }
+  reply["alarm"] = dur;
+  return true;
+}
+
+bool IotsaAlarmMod::putHandler(const char *path, const JsonVariant& request, JsonObject& reply) {
+  int dur = 0;
+  if (request.is<int>()) {
+    dur = request.as<int>();
+  } else if (request.is<JsonObject>()) {
+    JsonObject& reqObj = request.as<JsonObject>();
+    dur = reqObj.get<int>("alarm");
+  } else {
+    return false;
+  }
+  if (dur) {
+    alarmEndTime = millis() + dur*100;
+    IotsaSerial.println("alarm on");
+    digitalWrite(PIN_ALARM, HIGH);
+    ledMod.set(0x0080ff, dur*100, 0, 1);
+  } else {
+    alarmEndTime = 0;
+  }
+  return true;
+}
+
 String IotsaAlarmMod::info() {
-  return "<p>See <a href='/alarm'>/alarm</a> to use the buzzer.";
+  return "<p>See <a href='/alarm'>/alarm</a> to use the buzzer. REST interface on <a href='/api/alarm'>/api/alarm</a>";
 }
 
 void IotsaAlarmMod::serverSetup() {
   // Setup the web server hooks for this module.
   server.on("/alarm", std::bind(&IotsaAlarmMod::handler, this));
+  api.setup("/api/alarm", true, true);
 }
 
 
