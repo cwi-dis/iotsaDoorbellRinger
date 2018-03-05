@@ -26,7 +26,6 @@
 #define PIN_BUTTON 4	// GPIO4 is the pushbutton
 #define PIN_LOCK 5		// GPIO5 is the keylock switch
 #define PIN_NEOPIXEL 15  // pulled-down during boot, can be used for NeoPixel afterwards
-#define WITH_HTTPS
 #define IFDEBUGX if(0)
 
 ESP8266WebServer server(80);
@@ -47,9 +46,7 @@ static void decodePercentEscape(String &src, String *dst); // Forward declaratio
 typedef struct _Button {
   int pin;
   String url;
-#ifdef WITH_HTTPS
   String fingerprint;
-#endif
   String token;
   bool sendOnPress;
   bool sendOnRelease;
@@ -59,13 +56,8 @@ typedef struct _Button {
 } Button;
 
 Button buttons[] = {
-#ifdef WITH_HTTPS
   { PIN_BUTTON, "", "", "", true, false, 0, 0, false},
   { PIN_LOCK, "", "", "", true, true, 0, 0, false}
-#else
-  { PIN_BUTTON, "", "", true, false, 0, 0, false},
-  { PIN_LOCK, "", "", true, true, 0, 0, false}
-#endif
 };
 
 const int nButton = sizeof(buttons) / sizeof(buttons[0]);
@@ -73,15 +65,28 @@ const int nButton = sizeof(buttons) / sizeof(buttons[0]);
 #define DEBOUNCE_DELAY 50 // 50 ms debouncing
 #define BUTTON_BEEP_DUR 10  // 10ms beep for button press
 
-void buttonConfigLoad() {
+class IotsaButtonMod : IotsaApiMod {
+public:
+  IotsaButtonMod(IotsaApplication &_app) : IotsaApiMod(_app) {}
+  void setup();
+  void serverSetup();
+  void loop();
+  String info();
+protected:
+  bool getHandler(const char *path, JsonObject& reply);
+  bool putHandler(const char *path, const JsonVariant& request, JsonObject& reply);
+  void configLoad();
+  void configSave();
+  void handler();
+};
+
+void IotsaButtonMod::configLoad() {
   IotsaConfigFileLoad cf("/config/buttons.cfg");
   for (int i=0; i<nButton; i++) {
     String name = "button" + String(i+1) + "url";
     cf.get(name, buttons[i].url, "");
-#ifdef WITH_HTTPS
     name = "button" + String(i+1) + "fingerprint";
     cf.get(name, buttons[i].fingerprint, "");
-#endif
     name = "button" + String(i+1) + "token";
     cf.get(name, buttons[i].token, "");
     name = "button" + String(i+1) + "on";
@@ -105,15 +110,13 @@ void buttonConfigLoad() {
   }
 }
 
-void buttonConfigSave() {
+void IotsaButtonMod::configSave() {
   IotsaConfigFileSave cf("/config/buttons.cfg");
   for (int i=0; i<nButton; i++) {
     String name = "button" + String(i+1) + "url";
     cf.put(name, buttons[i].url);
-#ifdef WITH_HTTPS
     name = "button" + String(i+1) + "fingerprint";
     cf.put(name, buttons[i].fingerprint);
-#endif
     name = "button" + String(i+1) + "token";
     cf.put(name, buttons[i].token);
     name = "button" + String(i+1) + "on";
@@ -133,14 +136,14 @@ void buttonConfigSave() {
   }
 }
 
-void buttonSetup() {
+void IotsaButtonMod::setup() {
   for (int i=0; i<nButton; i++) {
     pinMode(buttons[i].pin, INPUT_PULLUP);
   }
-  buttonConfigLoad();
+  configLoad();
 }
 
-void buttonHandler() {
+void IotsaButtonMod::handler() {
   bool any = false;
   bool isJSON = false;
 
@@ -155,7 +158,6 @@ void buttonHandler() {
         IFDEBUG IotsaSerial.println(buttons[j].url);
         any = true;
       }
-#ifdef WITH_HTTPS
       wtdName = "button" + String(j+1) + "fingerprint";
       if (server.argName(i) == wtdName) {
         String arg = server.arg(i);
@@ -165,7 +167,6 @@ void buttonHandler() {
         IFDEBUG IotsaSerial.println(buttons[j].fingerprint);
         any = true;
       }
-#endif
 
       wtdName = "button" + String(j+1) + "token";
       if (server.argName(i) == wtdName) {
@@ -200,7 +201,7 @@ void buttonHandler() {
       isJSON = true;
     }
   }
-  if (any) buttonConfigSave();
+  if (any) configSave();
   if (isJSON) {
     String message = "{\"buttons\" : [";
     for (int i=0; i<nButton; i++) {
@@ -219,13 +220,11 @@ void buttonHandler() {
       message += buttons[i].url;
       message += "\"";
 
-#ifdef WITH_HTTPS
       message += ", \"button";
       message += String(i+1);
       message += "fingerprint\" : \"";
       message += buttons[i].fingerprint;
       message += "\"";
-#endif
 
       message += ", \"button";
       message += String(i+1);
@@ -265,11 +264,9 @@ void buttonHandler() {
       message += buttons[i].url;
       message += "'><br>\n";
 
-#ifdef WITH_HTTPS
       message += "Fingerprint <i>(https only)</i>: <input name='button" + String(i+1) + "fingerprint' value='";
       message += buttons[i].fingerprint;
       message += "'><br>\n";
-#endif
 
       message += "Bearer token <i>(optional)</i>: <input name='button" + String(i+1) + "token' value='";
       message += buttons[i].token;
@@ -297,8 +294,8 @@ void buttonHandler() {
   }
 }
 
-String buttonInfo() {
-  return "<p>See <a href='/buttons'>/buttons</a> to program URLs for button presses.</a>";
+String IotsaButtonMod::info() {
+  return "<p>See <a href='/buttons'>/buttons</a> to program URLs for button presses. REST API at <a href='/buttons'>/buttons</a></p>";
 }
 
 bool sendRequest(String urlStr, String token, String fingerprint="") {
@@ -306,15 +303,11 @@ bool sendRequest(String urlStr, String token, String fingerprint="") {
   HTTPClient http;
   ledMod.set(0x000020, 250, 250, 10); // Flash 2 times per second blue, while connecting
   delay(1);
-#ifdef WITH_HTTPS
   if (urlStr.startsWith("https:")) {
     http.begin(urlStr, fingerprint);
   } else {
     http.begin(urlStr);  
   }
-#else
-  http.begin(urlStr);
-#endif
   if (token != "") {
     http.addHeader("Authorization", "Bearer " + token);
   }
@@ -334,7 +327,7 @@ bool sendRequest(String urlStr, String token, String fingerprint="") {
   return rv;
 }
 
-void buttonLoop() {
+void IotsaButtonMod::loop() {
   for (int i=0; i<nButton; i++) {
     int state = digitalRead(buttons[i].pin);
     if (state != buttons[i].debounceState) {
@@ -347,19 +340,71 @@ void buttonLoop() {
         buttons[i].buttonState = newButtonState;
         bool doSend = (buttons[i].buttonState && buttons[i].sendOnPress) || (!buttons[i].buttonState && buttons[i].sendOnRelease);
         if (doSend && buttons[i].url != "") {
-#ifdef WITH_HTTPS
           sendRequest(buttons[i].url, buttons[i].token, buttons[i].fingerprint);
-#else
-          sendRequest(buttons[i].url, buttons[i].token);
-#endif
         }
       }
     }
   }
 }
 
-IotsaSimpleMod buttonMod(application, "/buttons", buttonHandler, buttonInfo);
+bool IotsaButtonMod::getHandler(const char *path, JsonObject& reply) {
+  JsonArray& rv = reply.createNestedArray("buttons");
+  for (Button *b=buttons; b<buttons+nButton; b++) {
+    JsonObject& bRv = rv.createNestedObject();
+    bRv["url"] = b->url;
+    bRv["fingerprint"] = b->fingerprint;
+    bRv["state"] = b->buttonState;
+    bRv["hasToken"] = b->token != "";
+    bRv["onPress"] = b->sendOnPress;
+    bRv["onRelease"] = b->sendOnRelease;
+  }
+  return true;
+}
 
+bool IotsaButtonMod::putHandler(const char *path, const JsonVariant& request, JsonObject& reply) {
+  Button *b;
+  if (strcmp(path, "/api/buttons/0") == 0) {
+    b = &buttons[0];
+  } else if (strcmp(path, "/api/buttons/1") == 0) {
+    b = &buttons[1];
+  } else {
+    return false;
+  }
+  if (!request.is<JsonObject>()) return false;
+  JsonObject& reqObj = request.as<JsonObject>();
+  bool any = false;
+  if (reqObj.containsKey("url")) {
+    any = true;
+    b->url = reqObj.get<String>("url");
+  }
+  if (reqObj.containsKey("fingerprint")) {
+    any = true;
+    b->fingerprint = reqObj.get<String>("fingerprint");
+  }
+  if (reqObj.containsKey("token")) {
+    any = true;
+    b->token = reqObj.get<String>("token");
+  }
+  if (reqObj.containsKey("onPress")) {
+    any = true;
+    b->sendOnPress = reqObj.get<bool>("onPress");
+  }
+  if (reqObj.containsKey("onRelease")) {
+    any = true;
+    b->sendOnRelease = reqObj.get<bool>("onRelease");
+  }
+  if (any) configSave();
+  return any;
+}
+
+void IotsaButtonMod::serverSetup() {
+  server.on("/buttons", std::bind(&IotsaButtonMod::handler, this));
+  api.setup("/api/buttons", true, false);
+  api.setup("/api/buttons/0", false, true);
+  api.setup("/api/buttons/1", false, true);
+}
+
+IotsaButtonMod buttonMod(application);
 
 //
 // Decode percent-escaped string src.
@@ -397,11 +442,9 @@ static void decodePercentEscape(String &src, String *dst) {
 void setup(void) {
   application.setup();
   application.serverSetup();
-  buttonSetup();
   ESP.wdtEnable(WDTO_120MS);
 }
  
 void loop(void) {
   application.loop();
-  buttonLoop();
 } 
