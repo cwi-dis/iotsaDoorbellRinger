@@ -27,7 +27,7 @@ static bool stringContainedIn(const char *wanted, JsonVariant& got) {
 
 // This module requires the ArduinoJWT library from https://github.com/yutter/ArduinoJWT
 
-IotsaJWTTokenMod::IotsaJWTTokenMod(IotsaApplication &_app, IotsaAuthMod &_chain)
+IotsaJWTTokenMod::IotsaJWTTokenMod(IotsaApplication &_app, IotsaAuthenticationProvider &_chain)
 :	chain(_chain),
 	IotsaAuthMod(_app)
 {
@@ -90,7 +90,7 @@ String IotsaJWTTokenMod::info() {
   return message;
 }
 
-bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
+bool IotsaJWTTokenMod::allows(const char *right) {
   if (server.hasHeader("Authorization")) {
     String authHeader = server.header("Authorization");
     if (authHeader.startsWith("Bearer ")) {
@@ -103,7 +103,7 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
       if (!ok) {
         IFDEBUGX IotsaSerial.println("Did not decode correctly with key");
         server.send(401, "text/plain", "401 Unauthorized (incorrect signature)\n");
-        return true;
+        return false;
       }
       
       // Token decoded correctly.
@@ -119,7 +119,7 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
         IFDEBUGX IotsaSerial.print(", got=");
         IFDEBUGX IotsaSerial.println(issuer);
         server.send(401, "text/plain", "401 Unauthorized (incorrect issuer)\n");
-        return true;
+        return false;
       }
       // xxxjack check that audience matches, if present
       if (root.containsKey("aud")) {
@@ -133,7 +133,7 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
           IFDEBUGX IotsaSerial.print(", got=");
           IFDEBUGX IotsaSerial.println(audience.as<String>());
           server.send(401, "text/plain", "401 Unauthorized (incorrect audience)\n");
-          return true;
+          return false;
         }
       }
       // check that right matches
@@ -144,14 +144,19 @@ bool IotsaJWTTokenMod::needsAuthentication(const char *right) {
           IFDEBUGX IotsaSerial.print(", got=");
           IFDEBUGX IotsaSerial.println(capRights.as<String>());
         server.send(401, "text/plain", "401 Unauthorized (incorrect rights)\n");
-        return true;
+        return false;
       }
       IFDEBUGX IotsaSerial.println("JWT accepted");
-      return false;
+      return true;
     }
     
   }
   IotsaSerial.println("No token match, try user/password");
   // If no rights fall back to username/password authentication
-  return chain.needsAuthentication(right);
+  return chain.allows(right);
 }
+
+bool IotsaJWTTokenMod::allows(const char *obj, IotsaApiOperation verb) {
+  return allows("api");
+}
+

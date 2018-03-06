@@ -4,18 +4,19 @@
 
 class IotsaJWTTokenMod : public IotsaAuthMod {
 public:
-  IotsaJWTTokenMod(IotsaApplication &_app, IotsaAuthMod &_chain);
+  IotsaJWTTokenMod(IotsaApplication &_app, IotsaAuthenticationProvider &_chain);
   void setup();
   void serverSetup();
   void loop();
   String info();
-  bool needsAuthentication(const char *right=NULL);
+  bool allows(const char *right=NULL);
+  bool allows(const char *obj, IotsaApiOperation verb);
 protected:
   void configLoad();
   void configSave();
   void handler();
   
-  IotsaAuthMod &chain;
+  IotsaAuthenticationProvider &chain;
   String trustedIssuer;
   String issuerKey;
 };
