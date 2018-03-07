@@ -23,6 +23,7 @@
 #include "iotsaConfigFile.h"
 #include "iotsaUser.h"
 #include "iotsaLed.h"
+#include "iotsaLogger.h"
 #include "iotsaCapabilities.h"
 
 #define PIN_ALARM 4 // GPIO4 connects to the buzzer
@@ -35,12 +36,13 @@ IotsaApplication application(server, "Doorbell Ringer Server");
 // Configure modules we need
 IotsaWifiMod wifiMod(application);  // wifi is always needed
 IotsaOtaMod otaMod(application);    // we want OTA for updating the software (will not work with esp-201)
-IotsaFilesBackupMod filesBackupMod(application);  // we want backup to clone server
 IotsaLedMod ledMod(application, PIN_NEOPIXEL);
 
 IotsaUserMod myUserAuthenticator(application, "owner");  // Our username/password authenticator module
 IotsaCapabilityMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
-
+IotsaLoggerMod myLogger(application, &myTokenAuthenticator);
+// NOTE: the next line is temporary, for development, it allows getting at tokens.
+IotsaFilesBackupMod filesBackupMod(application, &myTokenAuthenticator);  // we want backup to clone server
 
 //
 // Buzzer configuration and implementation
