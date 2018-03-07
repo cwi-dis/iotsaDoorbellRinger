@@ -21,7 +21,9 @@
 #include "iotsaFilesBackup.h"
 #include "iotsaSimple.h"
 #include "iotsaConfigFile.h"
+#include "iotsaUser.h"
 #include "iotsaLed.h"
+#include "iotsaCapabilities.h"
 
 #define PIN_BUTTON 4	// GPIO4 is the pushbutton
 #define PIN_LOCK 5		// GPIO5 is the keylock switch
@@ -36,6 +38,9 @@ IotsaWifiMod wifiMod(application);  // wifi is always needed
 IotsaOtaMod otaMod(application);    // we want OTA for updating the software (will not work with esp-201)
 IotsaFilesBackupMod filesBackupMod(application);  // we want backup to clone server
 IotsaLedMod ledMod(application, PIN_NEOPIXEL);
+
+IotsaUserMod myUserAuthenticator(application, "owner");  // Our username/password authenticator module
+IotsaCapabilityMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
 
 static void decodePercentEscape(String &src, String *dst); // Forward declaration
 
@@ -67,7 +72,7 @@ const int nButton = sizeof(buttons) / sizeof(buttons[0]);
 
 class IotsaButtonMod : IotsaApiMod {
 public:
-  IotsaButtonMod(IotsaApplication &_app) : IotsaApiMod(_app) {}
+  IotsaButtonMod(IotsaApplication &_app, IotsaAuthMod *_auth=NULL) : IotsaApiMod(_app, _auth) {}
   void setup();
   void serverSetup();
   void loop();
@@ -404,7 +409,7 @@ void IotsaButtonMod::serverSetup() {
   api.setup("/api/buttons/1", false, true);
 }
 
-IotsaButtonMod buttonMod(application);
+IotsaButtonMod buttonMod(application, &myTokenAuthenticator);
 
 //
 // Decode percent-escaped string src.

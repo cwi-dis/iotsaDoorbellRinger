@@ -22,8 +22,8 @@
 #include "iotsaSimple.h"
 #include "iotsaConfigFile.h"
 #include "iotsaUser.h"
-#include "iotsaJWTToken.h"
 #include "iotsaLed.h"
+#include "iotsaCapabilities.h"
 
 #define PIN_ALARM 4 // GPIO4 connects to the buzzer
 #define PIN_NEOPIXEL 15  // pulled-down during boot, can be used for NeoPixel afterwards
@@ -39,7 +39,7 @@ IotsaFilesBackupMod filesBackupMod(application);  // we want backup to clone ser
 IotsaLedMod ledMod(application, PIN_NEOPIXEL);
 
 IotsaUserMod myUserAuthenticator(application, "owner");  // Our username/password authenticator module
-IotsaJWTTokenMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
+IotsaCapabilityMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
 
 
 //
