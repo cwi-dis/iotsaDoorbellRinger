@@ -23,6 +23,7 @@
 #include "iotsaConfigFile.h"
 #include "iotsaUser.h"
 #include "iotsaLed.h"
+#include "iotsalogger.h"
 #include "iotsaCapabilities.h"
 
 #define PIN_BUTTON 4	// GPIO4 is the pushbutton
@@ -36,11 +37,13 @@ IotsaApplication application(server, "Doorbell Button Server");
 // Configure modules we need
 IotsaWifiMod wifiMod(application);  // wifi is always needed
 IotsaOtaMod otaMod(application);    // we want OTA for updating the software (will not work with esp-201)
-IotsaFilesBackupMod filesBackupMod(application);  // we want backup to clone server
 IotsaLedMod ledMod(application, PIN_NEOPIXEL);
 
 IotsaUserMod myUserAuthenticator(application, "owner");  // Our username/password authenticator module
 IotsaCapabilityMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
+IotsaLoggerMod myLogger(application, &myTokenAuthenticator);
+// NOTE: the next line is temporary, for development, it allows getting at tokens.
+IotsaFilesBackupMod filesBackupMod(application, &myTokenAuthenticator);  // we want backup to clone server
 
 static void decodePercentEscape(String &src, String *dst); // Forward declaration
 
@@ -300,7 +303,7 @@ void IotsaButtonMod::handler() {
 }
 
 String IotsaButtonMod::info() {
-  return "<p>See <a href='/buttons'>/buttons</a> to program URLs for button presses. REST API at <a href='/buttons'>/buttons</a></p>";
+  return "<p>See <a href='/buttons'>/buttons</a> to program URLs for button presses. REST API at <a href='/api/buttons'>/api/buttons</a></p>";
 }
 
 bool sendRequest(String urlStr, String token, String fingerprint="") {
