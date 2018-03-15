@@ -358,6 +358,7 @@ bool sendRequestHTTPSWorkaround(String urlStr, String token, String fingerprint=
   if (fingerprint != "") {
     if (!client.verify(fingerprint.c_str(), host.c_str())) {
       IotsaSerial.println("https fingerprint does not match");
+      ledMod.set(0x200000, 250, 0, 1); // quarter second red flash for failure
       return false;
     }
   } else {
