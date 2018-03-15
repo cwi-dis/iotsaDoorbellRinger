@@ -33,7 +33,7 @@
 
 // Define this to handle https requests with WifiClientSecure, there seems to be an issue
 // (in esp8266 2.4.0) with HttpClient complaining about the fingerprint.
-#define HTTPS_BUG_WORKAROUND
+#undef HTTPS_BUG_WORKAROUND
 #ifdef HTTPS_BUG_WORKAROUND
 #include <WiFiClientSecure.h>
 #endif
