@@ -21,7 +21,7 @@
 #include "iotsaConfigFile.h"
 #include "iotsaUser.h"
 #include "iotsaLed.h"
-#include "iotsalogger.h"
+#include "iotsaLogger.h"
 #include "iotsaCapabilities.h"
 
 #define PIN_BUTTON 4	// GPIO4 is the pushbutton
