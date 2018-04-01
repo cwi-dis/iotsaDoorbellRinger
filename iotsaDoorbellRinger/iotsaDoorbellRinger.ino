@@ -137,6 +137,7 @@ void IotsaAlarmMod::serverSetup() {
   // Setup the web server hooks for this module.
   server.on("/alarm", std::bind(&IotsaAlarmMod::handler, this));
   api.setup("/api/alarm", true, true);
+  name = "alarm";
 }
 
 
