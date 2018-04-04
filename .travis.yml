@@ -5,3 +5,13 @@ install:
 - pip install -U platformio
 script:
 - platformio run
+deploy:
+  provider: releases
+  api_key:
+    secure: ahKpywMFGllG+s7keGLYRtBVjWD5INCqpQZT1BNVYqe9ulAWFYIqDoK/jB+1cFodH2O0BVfTlRgBSHIiAv/Vcg7IXGw+wmRWUOgh/LwKXR/GG3F2ln9AfXMzEKF/DQtC//MmiMqNLP+liFS84nleTfoty5k5atfSTRQaNqHylJZca7WP5Y0SjT+t2NPjxcCydHLXShWIidxBep+35kIPu6uhZUH2KiX9Qs4C2T8fGHmNWC8OKobD73rkd3ugzC2VqbjyQBU4bkkP/DGJ1tW7PqkhN9WgVpEpyPa9UNPDybIofIFP1FElrZq9dqpMF6cbzwgviY2shBjkA3UuIPBH9YTnBfLxENZzqcTu1ZHzrMheCgDU/r85poueyFR4xb+suFJo+WQNL5lEbO9zMoxH8YAyEq2bbQbVnCF3WzmGpuOCXy0fr+GDqRbzPFDInJfnnzjXYW9PUYlbrV0EB0T0CkQs5DzCybbSFdl1DV+1EFHeUaQgF8i3YB8YZKiyl1PBNzkZW993hiONcHZH+GqR34tXK4hIB4j7+LBEhZQ3+V3TPaE/f6HkHtxZU7+PQESTRtc+f65qFzho9CtbY1sALkLIVmK4FI7nLq2d7ZQMfZ/d25sCInj2EqZu162fHal6Xkuyayx+XeBpxgbtOAZ96lCnM2kuuKjKcR+hpwb5z+Q=
+  file: ".pioenvs/nodemcuv2/firmware.bin"
+  skip_cleanup: true
+  on:
+    repo: cwi-dis/iotsaDoorbellRinger
+    tags: true
+    all_branches: true
