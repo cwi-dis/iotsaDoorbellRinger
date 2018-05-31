@@ -36,9 +36,9 @@ IotsaLedMod ledMod(application, PIN_NEOPIXEL);
 
 IotsaUserMod myUserAuthenticator(application, "owner");  // Our username/password authenticator module
 IotsaCapabilityMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
+#ifdef IOTSA_WITH_HTTP_OR_HTTPS
 IotsaLoggerMod myLogger(application, &myTokenAuthenticator);
-// NOTE: the next line is temporary, for development, it allows getting at tokens.
-IotsaFilesBackupMod filesBackupMod(application, &myTokenAuthenticator);  // we want backup to clone server
+#endif
 
 //
 // Buzzer configuration and implementation
@@ -67,6 +67,7 @@ void IotsaAlarmMod::setup() {
   pinMode(PIN_ALARM, OUTPUT); // Trick: we configure to input so we make the pin go Hi-Z.
 }
 
+#ifdef IOTSA_WITH_WEB
 void IotsaAlarmMod::handler() {
   if (needsAuthentication("alarm")) return;
   
@@ -94,6 +95,11 @@ void IotsaAlarmMod::handler() {
   server->send(200, "text/html", message);
   
 }
+
+String IotsaAlarmMod::info() {
+  return "<p>See <a href='/alarm'>/alarm</a> to use the buzzer. REST interface on <a href='/api/alarm'>/api/alarm</a>";
+}
+#endif // IOTSA_WITH_WEB
 
 bool IotsaAlarmMod::getHandler(const char *path, JsonObject& reply) {
   int dur = 0;
@@ -125,13 +131,11 @@ bool IotsaAlarmMod::putHandler(const char *path, const JsonVariant& request, Jso
   return true;
 }
 
-String IotsaAlarmMod::info() {
-  return "<p>See <a href='/alarm'>/alarm</a> to use the buzzer. REST interface on <a href='/api/alarm'>/api/alarm</a>";
-}
-
 void IotsaAlarmMod::serverSetup() {
   // Setup the web server hooks for this module.
+#ifdef IOTSA_WITH_WEB
   server->on("/alarm", std::bind(&IotsaAlarmMod::handler, this));
+#endif
   api.setup("/api/alarm", true, true);
   name = "alarm";
 }
