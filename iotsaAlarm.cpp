@@ -6,11 +6,11 @@ void IotsaAlarmMod::setup() {
 }
 
 #ifdef IOTSA_WITH_WEB
-void IotsaAlarmMod::handler() {
+void IotsaAlarmMod::webHandler() {
   if (needsAuthentication("alarm")) return;
 
-  if (server->hasArg("alarm")) {
-    int dur = server->arg("alarm").toInt();
+  if (api.webService->server->hasArg("alarm")) {
+    int dur = api.webService->server->arg("alarm").toInt();
     if (dur) {
       alarmEndTime = millis() + dur*100;
       IotsaSerial.println("alarm on");
@@ -24,7 +24,7 @@ void IotsaAlarmMod::handler() {
   message += "<form method='get'>";
   message += "Alarm: <input name='alarm' value=''> (times 0.1 second)<br>\n";
   message += "<input type='submit'></form></body></html>";
-  server->send(200, "text/html", message);
+  api.webService->server->send(200, "text/html", message);
 }
 
 String IotsaAlarmMod::info() {
@@ -62,12 +62,8 @@ bool IotsaAlarmMod::putHandler(const char *path, const JsonVariant& request, Jso
   return true;
 }
 
-void IotsaAlarmMod::serverSetup() {
-  // Setup the web server hooks for this module.
-#ifdef IOTSA_WITH_WEB
-  server->on("/alarm", std::bind(&IotsaAlarmMod::handler, this));
-#endif
-  api.setup("/api/alarm", true, true);
+void IotsaAlarmMod::lateSetup() {
+  api.setup("alarm", true, true);
   name = "alarm";
 }
 

@@ -11,22 +11,21 @@ extern IotsaLedMod ledMod;
 //
 // Buzzer module: sounds the buzzer (and flashes the LED) for a configurable duration.
 //
-class IotsaAlarmMod : public IotsaApiMod {
+class IotsaAlarmMod : public IotsaModule {
 public:
-  IotsaAlarmMod(IotsaApplication &_app, IotsaAuthMod *_auth=NULL)
-  : IotsaApiMod(_app, _auth),
-    alarmEndTime(0)
-  {}
+  using IotsaModule::IotsaModule;
   void setup() override;
-  void serverSetup() override;
+  void lateSetup() override;
   void loop() override;
   String info() override;
-  using IotsaBaseMod::needsAuthentication;
+  using IotsaBaseModule::needsAuthentication;
 protected:
   bool getHandler(const char *path, JsonObject& reply) override;
   bool putHandler(const char *path, const JsonVariant& request, JsonObject& reply) override;
-  void handler();
-  unsigned long alarmEndTime;
+#ifdef IOTSA_WITH_WEB
+  void webHandler() override;
+#endif
+  unsigned long alarmEndTime = 0;
 };
 
 #endif
