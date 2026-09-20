@@ -15,7 +15,7 @@ void IotsaAlarmMod::webHandler() {
       alarmEndTime = millis() + dur*100;
       IotsaSerial.println("alarm on");
       digitalWrite(PIN_ALARM, HIGH);
-      ledMod.set(0x0080ff, dur*100, 0, 1);
+      iotsaStatus.setStatusPulse(0x0080ff, 0, 0, dur*100, "alarm");
     } else {
       alarmEndTime = 0;
     }
@@ -55,7 +55,7 @@ bool IotsaAlarmMod::putHandler(const char *path, const JsonVariant& request, Jso
     alarmEndTime = millis() + dur*100;
     IotsaSerial.println("alarm on");
     digitalWrite(PIN_ALARM, HIGH);
-    ledMod.set(0x0080ff, dur*100, 0, 1);
+    iotsaStatus.setStatusPulse(0x0080ff, 0, 0, dur*100, "alarm");
   } else {
     alarmEndTime = 0;
   }

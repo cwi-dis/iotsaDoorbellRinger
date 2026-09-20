@@ -2,9 +2,6 @@
 #define _IOTSAALARM_H_
 #include "iotsa.h"
 #include "iotsaApi.h"
-#include "iotsaLed.h"
-
-extern IotsaLedMod ledMod;
 
 #define PIN_ALARM 4 // GPIO4 connects to the buzzer
 
