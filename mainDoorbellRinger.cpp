@@ -23,7 +23,8 @@ IotsaApplication application("Doorbell Ringer Server");
 IotsaUserMod myUserAuthenticator(application, "owner");  // Our username/password authenticator module
 IotsaCapabilityMod myTokenAuthenticator(application, myUserAuthenticator); // Our token authenticator
 
-IotsaAlarmMod alarmMod(application);
+#define PIN_ALARM 4 // GPIO4 connects to the buzzer
+IotsaAlarmMod alarmMod(application, PIN_ALARM);
 
 //
 // Boilerplate for iotsa server, with hooks to our code added.
